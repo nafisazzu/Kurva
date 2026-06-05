@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kurva Konik Parametrik</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #ffffff;
+    --surface: #f5f6f8;
+    --border: #e0e2e8;
+    --text: #1a1c22;
+    --muted: #7a7f90;
+    --c0: #00e5ff; /* lingkaran */
+    --c1: #7c5cfc; /* elips */
+    --c2: #00ffb0; /* parabola */
+    --c3: #ff9f43; /* hiperbola */
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #ffffff;
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 16px 48px;
+  }
+  header {
+    width: 100%; max-width: 1060px;
+    margin-bottom: 20px;
+    display: flex; align-items: flex-end; justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 14px;
+  }
+  header h1 { font-size: 21px; font-weight: 800; letter-spacing: -0.5px; }
+  .badge {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    background: var(--border); color: var(--muted);
+    padding: 4px 10px; border-radius: 20px;
+  }
+
+  /* TABS */
+  .tab-bar {
+    width: 100%; max-width: 1060px;
+    display: flex; gap: 4px; margin-bottom: 16px;
+  }
+  .tab-btn {
+    flex: 1; padding: 10px 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--muted);
+    font-family: 'Syne', sans-serif;
+    font-size: 13px; font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s;
+    position: relative;
+  }
+  .tab-btn:hover { color: var(--text); border-color: #2e3445; }
+  .tab-btn.active { color: var(--text); border-color: var(--accent); background: rgba(255,255,255,0.04); }
+  .tab-btn::after {
+    content: ''; position: absolute; bottom: -1px; left: 10%; width: 80%; height: 2px;
+    background: var(--accent); border-radius: 2px;
+    opacity: 0; transition: opacity 0.15s;
+  }
+  .tab-btn.active::after { opacity: 1; }
+
+  /* PANELS */
+  .tab-panel { display: none; width: 100%; max-width: 1060px; }
+  .tab-panel.active { display: grid; grid-template-columns: 1fr 340px; gap: 16px; }
+
+  /* CANVAS PANEL */
+  .canvas-panel {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; overflow: hidden;
+    display: flex; flex-direction: column;
+  }
+  .panel-header {
+    padding: 11px 16px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .panel-title { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+  .iter-badge {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    padding: 3px 10px; border-radius: 20px;
+    background: rgba(255,255,255,0.05); color: var(--accent);
+  }
+  canvas { display: block; width: 100%; aspect-ratio: 1; background: var(--bg); }
+  .formula-box {
+    padding: 13px 16px; border-top: 1px solid var(--border);
+    font-family: 'JetBrains Mono', monospace; font-size: 12px; line-height: 2.1; color: var(--muted);
+  }
+  .formula-box .f-line { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .formula-box .var { font-weight: 600; }
+  .formula-box .val { font-weight: 600; }
+
+  /* RIGHT */
+  .right-panel { display: flex; flex-direction: column; gap: 12px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  .card-header {
+    padding: 9px 14px; border-bottom: 1px solid var(--border);
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 1px;
+  }
+  .card-body { padding: 13px; display: flex; flex-direction: column; gap: 11px; }
+
+  /* INPUTS */
+  .param-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .param-label { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); flex: 1; }
+  .param-label span { font-weight: 600; }
+  .param-input-group { display: flex; align-items: center; gap: 6px; }
+  input[type=range] {
+    -webkit-appearance: none; width: 86px; height: 3px;
+    background: var(--border); border-radius: 2px; outline: none;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 13px; height: 13px;
+    border-radius: 50%; cursor: pointer;
+  }
+  input[type=number] {
+    width: 58px; background: var(--bg); border: 1px solid var(--border);
+    color: var(--text); font-family: 'JetBrains Mono', monospace;
+    font-size: 12px; padding: 4px 6px; border-radius: 6px; text-align: right; outline: none;
+  }
+  input[type=number]:focus { border-color: var(--accent); }
+  select {
+    background: var(--bg); border: 1px solid var(--border); color: var(--text);
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    padding: 4px 8px; border-radius: 6px; outline: none; cursor: pointer;
+  }
+  .speed-row { display: flex; align-items: center; gap: 8px; }
+  .speed-row label { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); flex:1; }
+
+  /* BUTTONS */
+  .btn-row { display: flex; gap: 7px; }
+  button {
+    flex: 1; padding: 9px 0;
+    border: 1px solid var(--border); border-radius: 8px;
+    background: transparent; color: var(--text);
+    font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700;
+    cursor: pointer; transition: all 0.15s;
+  }
+  button:hover { background: var(--border); }
+  .btn-play { background: rgba(255,255,255,0.03) !important; }
+  .btn-play:hover { background: rgba(255,255,255,0.08) !important; }
+  .btn-play.playing { color: #ff5c5c !important; border-color: #ff5c5c !important; }
+  .btn-step { }
+  .btn-reset { }
+
+  /* LOG */
+  .log-wrap { max-height: 200px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+  table { width: 100%; border-collapse: collapse; font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+  thead th {
+    padding: 6px 9px; text-align: left; color: var(--muted);
+    border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; background: var(--surface);
+  }
+  tbody tr { border-bottom: 1px solid rgba(255,255,255,0.03); }
+  tbody td { padding: 5px 9px; color: var(--muted); }
+  tbody tr.new-row td { animation: fadeRow 0.4s ease; }
+  @keyframes fadeRow { from { background: rgba(255,255,255,0.06); } to { background: transparent; } }
+
+  .status-bar {
+    padding: 7px 13px; border-top: 1px solid var(--border);
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted);
+    display: flex; gap: 14px;
+  }
+  .status-bar .s-item span { color: var(--text); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Pembangkitan <span id="active-title" style="color:#00e5ff">Kurva Konik</span> Parametrik</h1>
+  <div class="badge">Grafika Komputer · Sem 4</div>
+</header>
+
+<!-- TAB BAR -->
+<div class="tab-bar">
+  <button class="tab-btn active" data-tab="0" style="--accent:var(--c0)">Lingkaran</button>
+  <button class="tab-btn" data-tab="1" style="--accent:var(--c1)">Elips</button>
+  <button class="tab-btn" data-tab="2" style="--accent:var(--c2)">Parabola</button>
+  <button class="tab-btn" data-tab="3" style="--accent:var(--c3)">Hiperbola</button>
+</div>
+
+<!-- ==================== TAB 0: LINGKARAN ==================== -->
+<div class="tab-panel active" id="panel-0">
+  <div class="canvas-panel">
+    <div class="panel-header">
+      <span class="panel-title">Canvas · Lingkaran</span>
+      <span class="iter-badge" id="badge-0" style="color:var(--c0)">θ = 0.000 rad</span>
+    </div>
+    <canvas id="cvs-0"></canvas>
+    <div class="formula-box" style="--accent:var(--c0)">
+      <div class="f-line">
+        <span class="var" style="color:var(--c0)">x</span> = <span class="var" style="color:var(--c0)">xc</span> + <span class="var" style="color:var(--c0)">r</span> · cos(<span class="var" style="color:var(--c0)">θ</span>)
+        &nbsp;→&nbsp; x = <span class="val" id="fval-0-x" style="color:var(--c0)">–</span>
+      </div>
+      <div class="f-line">
+        <span class="var" style="color:var(--c0)">y</span> = <span class="var" style="color:var(--c0)">yc</span> + <span class="var" style="color:var(--c0)">r</span> · sin(<span class="var" style="color:var(--c0)">θ</span>)
+        &nbsp;→&nbsp; y = <span class="val" id="fval-0-y" style="color:var(--c0)">–</span>
+      </div>
+    </div>
+  </div>
+  <div class="right-panel">
+    <div class="card">
+      <div class="card-header">Parameter · Lingkaran</div>
+      <div class="card-body">
+        <div class="param-row">
+          <span class="param-label"><span style="color:var(--c0)">xc</span> — pusat X</span>
+          <div class="param-input-group">
+            <input type="range" id="s-0-xc" min="-150" max="150" value="0" step="1" style="accent-color:var(--c0)">
+            <input type="number" id="n-0-xc" value="0" min="-150" max="150">
+          </div>
+        </div>
+        <div class="param-row">
+          <span class="param-label"><span style="color:var(--c0)">yc</span> — pusat Y</span>
+          <div class="param-input-group">
+            <input type="range" id="s-0-yc" min="-150" max="150" value="0" step="1" style="accent-color:var(--c0)">
+            <input type="number" id="n-0-yc" value="0" min="-150" max="150">
+          </div>
+        </div>
+        <div class="param-row">
+          <span class="param-label"><span style="color:var(--c0)">r</span> — jari-jari</span>
+          <div class="param-input-group">
+            <input type="range" id="s-0-r" min="10" max="200" value="100" step="1" style="accent-color:var(--c0)">
+            <input type="number" id="n-0-r" value="100" min="10" max="200">
+          </div>
+        </div>
+        <div class="param-row">
+          <span class="param-label"><span style="color:var(--c0)">dθ</span> — delta theta</span>
+          <div class="param-input-group">
+            <input type="range" id="s-0-dt" min="0.01" max="0.5" value="0.1" step="0.01" style="accent-color:var(--c0)">
+            <input type="number" id="n-0-dt" value="0.1" min="0.01" max="0.5" step="0.01">
+          </div>
+        </div>
+        <div class="speed-row">
+          <label>Kecepatan</label>
+          <select id="spd-0"><option value="300">Lambat</option><option value="80" selected>Normal</option><option value="20">Cepat</option><option value="1">Instan</option></select>
+        </div>
+        <div class="btn-row">
+          <button class="btn-play" id="bp-0" style="color:var(--c0);border-color:var(--c0)">▶ Play</button>
+          <button class="btn-step" id="bs-0" style="color:var(--c0)">→ Step</button>
+          <button class="btn-reset" id="br-0">↺ Reset</button>
+        </div>
+      </div>
+    </div>
+    <div class="card" style="flex:1">
+      <div class="card-header">Log Koordinat</div>
+      <div class="log-wrap">
+        <table>
+          <thead><tr><th style="color:var(--c1)">#</th><th style="color:var(--c2)">θ (rad)</th><th>x</th><th>y</th></tr></thead>
+          <tbody id="log-0"></tbody>
+        </table>
+      </div>
+      <div class="status-bar">
+        <span class="s-item">Titik: <span id="st-0-pts">0</span></span>
+        <span class="s-item">Total: <span id="st-0-tot">–</span></span>
+        <span class="s-item">dθ: <span id="st-0-dt">–</span></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== TAB 1: ELIPS ==================== -->
+<div class="tab-panel" id="panel-1">
+  <div class="canvas-panel">
+    <div class="panel-header">
+      <span class="panel-title">Canvas · Elips</span>
+      <span class="iter-badge" id="badge-1" style="color:var(--c1)">θ = 0.000 rad</span>
+    </div>
+    <canvas id="cvs-1"></canvas>
+    <div class="formula-box">
+      <div class="f-line">
+        <span class="var" style="color:var(--c1)">x</span> = <span class="var" style="color:var(--c1)">xc</span> + <span class="var" style="color:var(--c1)">a</span> · cos(<span class="var" style="color:var(--c1)">θ</span>)
+        &nbsp;→&nbsp; x = <span class="val" id="fval-1-x" style="color:var(--c1)">–</span>
+      </div>
+      <div class="f-line">
+        <span class="var" style="color:var(--c1)">y</span> = <span class="var" style="color:var(--c1)">yc</span> + <span class="var" style="color:var(--c1)">b</span> · sin(<span class="var" style="color:var(--c1)">θ</span>)
+        &nbsp;→&nbsp; y = <span class="val" id="fval-1-y" style="color:var(--c1)">–</span>
+      </div>
+    </div>
+  </div>
+  <div class="right-panel">
+    <div class="card">
+      <div class="card-header">Parameter · Elips</div>
+      <div class="card-body">
+        <div class="param-row">
+          <span class="param-label"><span style="color:var(--c1)">xc</span> — pusat X</span>
+          <div class="param-input-group">
+            <input type="range" id="s-1-xc" min="-150" max="150" value="0" step="1" style="accent-color:var(--c1)">
+            <input type="number" id="n-1-xc" value="0" min="-150" max="150">
+          </div>
+        </div>
+        <div class="param-row">
+          <span class="param-label"><span style="color:var(--c1)">yc</span> — pusat Y</span>
+          <div class="param-input-group">
+            <input type="range" id="s-1-yc" min="-150" max="150" value="0" step="1" style="accent-color:var(--c1)">
+            <input type="number" id="n-1-yc" value="0" min="-150" max="150">
+          </div>
+        </div>
+        <div class="param-row">
+          <span class="param-label"><span style="color:var(--c1)">a</span> — semi-axis X</span>
+          <div class="param-input-group">
+            <input type="range" id="s-1-a" min="10" max="220" value="150" step="1" style="accent-color:var(--c1)">
+            <input type="number" id="n-1-a" value="150" min="10" max="220">
+          </div>
+        </div>
+        <div class="param-row">
+          <span class="param-label"><span style="color:var(--c1)">b</span> — semi-axis Y</span>
+          <div class="param-input-group">
+            <input type="range" id="s-1-b" min="10" max="220" value="80" step="1" style="accent-color:var(--c1)">
+            <input type="number" id="n-1-b" value="80" min="10" max="220">
+          </div>
+        </div>
+        <div class="param-row">
+          <span class="param-label"><span style="color:var(--c1)">dθ</span> — delta theta</span>
+          <div class="param-input-group">
+            <input type="range" id="s-1-dt" min="0.01" max="0.5" value="0.1" step="0.01" style="accent-color:var(--c1)">
+            <input type="number" id="n-1-dt" value="0.1" min="0.01" max="0.5" step="0.01">
+          </div>
+        </div>
+        <div class="speed-row">
+          <label>Kecepatan</label>
+          <select id="spd-1"><option value="300">Lambat</option><option value="80" selected>Normal</option><option value="20">Cepat</option><option value="1">Instan</option></select>
+        </div>
+        <div class="btn-row">
+          <button class="btn-play" id="bp-1" style="color:var(--c1);border-color:var(--c1)">▶ Play</button>
+          <button class="btn-step" id="bs-1" style="color:var(--c1)">→ Step</button>
+          <button class="btn-reset" id="br-1">↺ Reset</button>
+        </div>
+      </div>
+    </div>
+    <div class="card" style="flex:1">
+      <div class="card-header">Log Koordinat</div>
+      <div class="log-wrap">
+        <table>
+          <thead><tr><th style="color:var(--c1)">#</th><th style="color:var(--c2)">θ (rad)</th><th>x</th><th>y</th></tr></thead>
+          <tbody id="log-1"></tbody>
+        </table>
+      </div>
+      <div class="status-bar">
+        <span class="s-item">Titik: <span id="st-1-pts">0</span></span>
+        <span class="s-item">Total: <span id="st-1-tot">–</span></span>
+        <span class="s-item">dθ: <span id="st-1-dt">–</span></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== TAB 2: PARABOLA ==================== -->
+<div class="tab-panel" id="panel-2">
+  <div class="canvas-panel">
+    <div class="panel-header">
+      <span class="panel-title">Canvas · Parabola</span>
+      <span class="iter-badge" id="badge-2" style="color:var(--c2)">t = 0.000</span>
+    </div>
+    <canvas id="cvs-2"></canvas>
+    <div class="formula-box">
+      <div class="f-line">
+        <span class="var" style="color:var(--c2)">x</span> = <span class="var" style="color:var(--c2)">xp</span> + <span class="var" style="color:var(--c2)">a</span> · t²
+        &nbsp;→&nbsp; x = <span class="val" id="fval-2-x" style="color:var(--c2)">–</span>
+      </div>
+      <div class="f-line">
+        <span class="var" style="color:var(--c2)">y</span> = <span class="var" style="color:var(--c2)">yp</span> + 2 · <span class="var" style="color:var(--c2)">a</span> · t
+        &nbsp;→&nbsp; y = <span class="val" id="fval-2-y" style="color:var(--c2)">–</span>
+      </div>
+    </div>
+  </div>
+  <div class="right-panel">
+    <div class="card">
+      <div class="card-header">Parameter · Parabola</div>
+      <div class="card-body">
+        <div class="param-row">
+          <span class="param-label"><span style="color:var(--c2)">xp</span> — puncak X</span>
+          <div class="param-input-group">
+            <input type="range" id="s-2-xp" min="-150" max="150" value="0" step="1" style="accent-color:var(--c2)">
+            <input type="number" id="n-2-xp" value="0" min="-150" max="150">
+          </div>
+        </div>
+        <div class="param-row">
+          <span class="param-label"><span style="color:var(--c2)">yp</span> — puncak Y</span>
+          <div class="param-input-group">
+            <input type="range" id="s-2-yp" min="-150" max="150" value="0" step="1" style="accent-color:var(--c2)">
+            <input type="number" id="n-2-yp" value="0" min="-150" max="150">
+          </div>
+        </div>
+        <div class="param-row">
+          <span class="param-label"><span style="color:var(--c2)">a</span> — fokus</span>
+          <div class="param-input-group">
+            <input type="range" id="s-2-a" min="1" max="50" value="10" step="1" style="accent-color:var(--c2)">
+            <input type="number" id="n-2-a" value="10" min="1" max="50">
+          </div>
+        </div>
+        <div class="param-row">
+          <span class="param-label"><span style="color:var(--c2)">t range</span> — ±t max</span>
+          <div class="param-input-group">
+            <input type="range" id="s-2-tmax" min="1" max="20" value="10" step="0.5" style="accent-color:var(--c2)">
+            <input type="number" id="n-2-tmax" value="10" min="1" max="20" step="0.5">
+          </div>
+        </div>
+        <div class="param-row">
+          <span class="param-label"><span style="color:var(--c2)">dt</span> — delta t</span>
+          <div class="param-input-group">
+            <input type="range" id="s-2-dt" min="0.05" max="1" value="0.2" step="0.05" style="accent-color:var(--c2)">
+            <input type="number" id="n-2-dt" value="0.2" min="0.05" max="1" step="0.05">
+          </div>
+        </div>
+        <div class="speed-row">
+          <label>Kecepatan</label>
+          <select id="spd-2"><option value="300">Lambat</option><option value="80" selected>Normal</option><option value="20">Cepat</option><option value="1">Instan</option></select>
+        </div>
+        <div class="btn-row">
+          <button class="btn-play" id="bp-2" style="color:var(--c2);border-color:var(--c2)">▶ Play</button>
+          <button class="btn-step" id="bs-2" style="color:var(--c2)">→ Step</button>
+          <button class="btn-reset" id="br-2">↺ Reset</button>
+        </div>
+      </div>
+    </div>
+    <div class="card" style="flex:1">
+      <div class="card-header">Log Koordinat</div>
+      <div class="log-wrap">
+        <table>
+          <thead><tr><th style="color:var(--c1)">#</th><th style="color:var(--c2)">t</th><th>x</th><th>y</th></tr></thead>
+          <tbody id="log-2"></tbody>
+        </table>
+      </div>
+      <div class="status-bar">
+        <span class="s-item">Titik: <span id="st-2-pts">0</span></span>
+        <span class="s-item">Total: <span id="st-2-tot">–</span></span>
+        <span class="s-item">dt: <span id="st-2-dt">–</span></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== TAB 3: HIPERBOLA ==================== -->
+<div class="tab-panel" id="panel-3">
+  <div class="canvas-panel">
+    <div class="panel-header">
+      <span class="panel-title">Canvas · Hiperbola</span>
+      <span class="iter-badge" id="badge-3" style="color:var(--c3)">θ = 0.000 rad</span>
+    </div>
+    <canvas id="cvs-3"></canvas>
+    <div class="formula-box">
+      <div class="f-line">
+        <span class="var" style="color:var(--c3)">x</span> = <span class="var" style="color:var(--c3)">xc</span> + <span class="var" style="color:var(--c3)">a</span> · sec(<span class="var" style="color:var(--c3)">θ</span>)
+        &nbsp;→&nbsp; x = <span class="val" id="fval-3-x" style="color:var(--c3)">–</span>
+      </div>
+      <div class="f-line">
+        <span class="var" style="color:var(--c3)">y</span> = <span class="var" style="color:var(--c3)">yc</span> + <span class="var" style="color:var(--c3)">b</span> · tan(<span class="var" style="color:var(--c3)">θ</span>)
+        &nbsp;→&nbsp; y = <span class="val" id="fval-3-y" style="color:var(--c3)">–</span>
+      </div>
+    </div>
+  </div>
+  <div class="right-panel">
+    <div class="card">
+      <div class="card-header">Parameter · Hiperbola</div>
+      <div class="card-body">
+        <div class="param-row">
+          <span class="param-label"><span style="color:var(--c3)">xc</span> — pusat X</span>
+          <div class="param-input-group">
+            <input type="range" id="s-3-xc" min="-150" max="150" value="0" step="1" style="accent-color:var(--c3)">
+            <input type="number" id="n-3-xc" value="0" min="-150" max="150">
+          </div>
+        </div>
+        <div class="param-row">
+          <span class="param-label"><span style="color:var(--c3)">yc</span> — pusat Y</span>
+          <div class="param-input-group">
+            <input type="range" id="s-3-yc" min="-150" max="150" value="0" step="1" style="accent-color:var(--c3)">
+            <input type="number" id="n-3-yc" value="0" min="-150" max="150">
+          </div>
+        </div>
+        <div class="param-row">
+          <span class="param-label"><span style="color:var(--c3)">a</span> — semi-transversal</span>
+          <div class="param-input-group">
+            <input type="range" id="s-3-a" min="10" max="200" value="80" step="1" style="accent-color:var(--c3)">
+            <input type="number" id="n-3-a" value="80" min="10" max="200">
+          </div>
+        </div>
+        <div class="param-row">
+          <span class="param-label"><span style="color:var(--c3)">b</span> — semi-konjugasi</span>
+          <div class="param-input-group">
+            <input type="range" id="s-3-b" min="10" max="200" value="60" step="1" style="accent-color:var(--c3)">
+            <input type="number" id="n-3-b" value="60" min="10" max="200">
+          </div>
+        </div>
+        <div class="param-row">
+          <span class="param-label"><span style="color:var(--c3)">dθ</span> — delta theta</span>
+          <div class="param-input-group">
+            <input type="range" id="s-3-dt" min="0.01" max="0.3" value="0.05" step="0.01" style="accent-color:var(--c3)">
+            <input type="number" id="n-3-dt" value="0.05" min="0.01" max="0.3" step="0.01">
+          </div>
+        </div>
+        <div class="speed-row">
+          <label>Kecepatan</label>
+          <select id="spd-3"><option value="300">Lambat</option><option value="80" selected>Normal</option><option value="20">Cepat</option><option value="1">Instan</option></select>
+        </div>
+        <div class="btn-row">
+          <button class="btn-play" id="bp-3" style="color:var(--c3);border-color:var(--c3)">▶ Play</button>
+          <button class="btn-step" id="bs-3" style="color:var(--c3)">→ Step</button>
+          <button class="btn-reset" id="br-3">↺ Reset</button>
+        </div>
+      </div>
+    </div>
+    <div class="card" style="flex:1">
+      <div class="card-header">Log Koordinat</div>
+      <div class="log-wrap">
+        <table>
+          <thead><tr><th style="color:var(--c1)">#</th><th style="color:var(--c3)">θ (rad)</th><th>x</th><th>y</th></tr></thead>
+          <tbody id="log-3"></tbody>
+        </table>
+      </div>
+      <div class="status-bar">
+        <span class="s-item">Titik: <span id="st-3-pts">0</span></span>
+        <span class="s-item">Total: <span id="st-3-tot">–</span></span>
+        <span class="s-item">dθ: <span id="st-3-dt">–</span></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== COLORS =====
+const COLORS = ['#00e5ff','#7c5cfc','#00ffb0','#ff9f43'];
+const TITLES = ['Lingkaran','Elips','Parabola','Hiperbola'];
+
+// ===== TAB SWITCHING =====
+const tabBtns = document.querySelectorAll('.tab-btn');
+const tabPanels = document.querySelectorAll('.tab-panel');
+let activeTab = 0;
+
+tabBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    const idx = parseInt(btn.dataset.tab);
+    // pause active tab animation
+    if (curves[activeTab]) curves[activeTab].stop();
+    activeTab = idx;
+    tabBtns.forEach(b => b.classList.toggle('active', b === btn));
+    tabPanels.forEach(p => p.classList.toggle('active', p.id === `panel-${idx}`));
+    document.getElementById('active-title').textContent = TITLES[idx];
+    document.getElementById('active-title').style.color = COLORS[idx];
+    // resize canvas of newly active tab
+    const c = document.getElementById(`cvs-${idx}`);
+    resizeCanvas(c);
+    curves[idx].redraw();
+  });
+});
+
+// ===== CANVAS RESIZE =====
+function resizeCanvas(c) {
+  const rect = c.getBoundingClientRect();
+  c.width  = rect.width  * devicePixelRatio;
+  c.height = rect.height * devicePixelRatio;
+}
+window.addEventListener('resize', () => {
+  const c = document.getElementById(`cvs-${activeTab}`);
+  resizeCanvas(c);
+  curves[activeTab].redraw();
+});
+
+// ===== CURVE ENGINE =====
+function makeCurve(idx, getParams, computePoint, isDone, paramLabel) {
+  const color = COLORS[idx];
+  const cvs   = document.getElementById(`cvs-${idx}`);
+  const ctx   = cvs.getContext('2d');
+
+  let points  = [];
+  let param   = null; // current parameter value
+  let animId  = null;
+  let playing = false;
+
+  function toCanvas(wx, wy) {
+    const W = cvs.width, H = cvs.height;
+    const scale = Math.min(W,H) / 520;
+    return [ W/2 + wx*scale, H/2 - wy*scale ];
+  }
+
+  function drawGrid() {
+    const W = cvs.width, H = cvs.height;
+    ctx.clearRect(0,0,W,H);
+    ctx.strokeStyle = 'rgba(0,0,0,0.05)';
+    ctx.lineWidth = 1;
+    const step = Math.min(W,H)/10;
+    for (let x = W/2%step; x<W; x+=step){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+    for (let y = H/2%step; y<H; y+=step){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+    ctx.strokeStyle='rgba(0,0,0,0.2)'; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.moveTo(W/2,0); ctx.lineTo(W/2,H); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0,H/2); ctx.lineTo(W,H/2); ctx.stroke();
+    ctx.fillStyle='rgba(0,0,0,0.3)';
+    ctx.font=`${10*devicePixelRatio}px JetBrains Mono`;
+    ctx.fillText('(0,0)', W/2+4, H/2-4);
+  }
+
+  function drawPoints() {
+    if (!points.length) return;
+    if (points.length >= 2) {
+      ctx.strokeStyle = color+'99';
+      ctx.lineWidth = 2*devicePixelRatio;
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      const [sx,sy] = toCanvas(points[0].x, points[0].y);
+      ctx.moveTo(sx,sy);
+      for (let i=1;i<points.length;i++){
+        const [px,py]=toCanvas(points[i].x,points[i].y);
+        ctx.lineTo(px,py);
+      }
+      ctx.stroke();
+    }
+    for (let i=0;i<points.length-1;i++){
+      const [px,py]=toCanvas(points[i].x,points[i].y);
+      ctx.fillStyle=color+'44';
+      ctx.beginPath(); ctx.arc(px,py,2.5*devicePixelRatio,0,Math.PI*2); ctx.fill();
+    }
+    const last=points[points.length-1];
+    const [lx,ly]=toCanvas(last.x,last.y);
+    ctx.fillStyle=color;
+    ctx.shadowColor=color; ctx.shadowBlur=10*devicePixelRatio;
+    ctx.beginPath(); ctx.arc(lx,ly,4.5*devicePixelRatio,0,Math.PI*2); ctx.fill();
+    ctx.shadowBlur=0;
+  }
+
+  function redraw() { drawGrid(); drawPoints(); }
+
+  function doStep() {
+    const p = getParams();
+    if (param === null) param = p.paramStart;
+    if (isDone(param, p)) return false;
+
+    const {x, y} = computePoint(param, p);
+    points.push({param, x, y});
+
+    // update formula display
+    document.getElementById(`fval-${idx}-x`).textContent = x.toFixed(3);
+    document.getElementById(`fval-${idx}-y`).textContent = y.toFixed(3);
+    document.getElementById(`badge-${idx}`).textContent  = `${paramLabel} = ${param.toFixed(3)}`;
+
+    addLog(points.length, param, x, y);
+    param += p.dp;
+    redraw();
+    updateStatus(p);
+    return true;
+  }
+
+  function addLog(i, pval, x, y) {
+    const tbody = document.getElementById(`log-${idx}`);
+    const tr = document.createElement('tr');
+    tr.className = 'new-row';
+    tr.innerHTML = `<td style="color:${COLORS[1]}">${i}</td><td style="color:${color}">${pval.toFixed(3)}</td><td>${x.toFixed(2)}</td><td>${y.toFixed(2)}</td>`;
+    tbody.appendChild(tr);
+    const wrap = tbody.closest('.log-wrap');
+    wrap.scrollTop = wrap.scrollHeight;
+    setTimeout(()=>tr.classList.remove('new-row'),500);
+  }
+
+  function updateStatus(p) {
+    document.getElementById(`st-${idx}-pts`).textContent = points.length;
+    document.getElementById(`st-${idx}-tot`).textContent = '~'+p.total;
+    document.getElementById(`st-${idx}-dt`).textContent  = p.dp.toFixed(3);
+  }
+
+  function playLoop() {
+    if (!playing) return;
+    const spd = parseInt(document.getElementById(`spd-${idx}`).value);
+    const ok = doStep();
+    if (!ok){ stop(); return; }
+    animId = setTimeout(playLoop, spd);
+  }
+
+  function start() {
+    if (isDone(param===null?getParams().paramStart:param, getParams())){ reset(); }
+    playing=true;
+    const btn=document.getElementById(`bp-${idx}`);
+    btn.textContent='⏸ Pause'; btn.classList.add('playing');
+    playLoop();
+  }
+  function stop() {
+    playing=false; clearTimeout(animId);
+    const btn=document.getElementById(`bp-${idx}`);
+    btn.textContent='▶ Play'; btn.classList.remove('playing');
+  }
+  function reset() {
+    stop(); param=null; points=[];
+    document.getElementById(`log-${idx}`).innerHTML='';
+    document.getElementById(`fval-${idx}-x`).textContent='–';
+    document.getElementById(`fval-${idx}-y`).textContent='–';
+    document.getElementById(`badge-${idx}`).textContent=`${paramLabel} = 0.000`;
+    redraw();
+    const p=getParams();
+    document.getElementById(`st-${idx}-pts`).textContent='0';
+    document.getElementById(`st-${idx}-tot`).textContent='~'+p.total;
+    document.getElementById(`st-${idx}-dt`).textContent=p.dp.toFixed(3);
+  }
+
+  // wire buttons
+  document.getElementById(`bp-${idx}`).addEventListener('click',()=>{ if(playing) stop(); else start(); });
+  document.getElementById(`bs-${idx}`).addEventListener('click',()=>{ stop(); doStep(); });
+  document.getElementById(`br-${idx}`).addEventListener('click', reset);
+
+  return { redraw, stop, reset };
+}
+
+// ===== PARAM HELPER =====
+function linkParam(sid, nid, cb) {
+  const s=document.getElementById(sid), n=document.getElementById(nid);
+  s.addEventListener('input',()=>{ n.value=s.value; cb(); });
+  n.addEventListener('input',()=>{ s.value=n.value; cb(); });
+}
+
+// ===== CURVE 0: LINGKARAN =====
+const curves = [];
+
+linkParam('s-0-xc','n-0-xc',()=>curves[0]&&curves[0].reset());
+linkParam('s-0-yc','n-0-yc',()=>curves[0]&&curves[0].reset());
+linkParam('s-0-r', 'n-0-r', ()=>curves[0]&&curves[0].reset());
+linkParam('s-0-dt','n-0-dt',()=>curves[0]&&curves[0].reset());
+
+curves[0] = makeCurve(0,
+  ()=>({
+    xc: parseFloat(document.getElementById('n-0-xc').value),
+    yc: parseFloat(document.getElementById('n-0-yc').value),
+    r:  parseFloat(document.getElementById('n-0-r').value),
+    dp: parseFloat(document.getElementById('n-0-dt').value),
+    paramStart: 0,
+    total: Math.ceil(2*Math.PI / parseFloat(document.getElementById('n-0-dt').value)) + 1,
+  }),
+  (theta, p) => ({
+    x: p.xc + p.r * Math.cos(theta),
+    y: p.yc + p.r * Math.sin(theta),
+  }),
+  (theta) => theta > 2*Math.PI + 1e-9,
+  'θ'
+);
+
+// ===== CURVE 1: ELIPS =====
+linkParam('s-1-xc','n-1-xc',()=>curves[1]&&curves[1].reset());
+linkParam('s-1-yc','n-1-yc',()=>curves[1]&&curves[1].reset());
+linkParam('s-1-a', 'n-1-a', ()=>curves[1]&&curves[1].reset());
+linkParam('s-1-b', 'n-1-b', ()=>curves[1]&&curves[1].reset());
+linkParam('s-1-dt','n-1-dt',()=>curves[1]&&curves[1].reset());
+
+curves[1] = makeCurve(1,
+  ()=>({
+    xc: parseFloat(document.getElementById('n-1-xc').value),
+    yc: parseFloat(document.getElementById('n-1-yc').value),
+    a:  parseFloat(document.getElementById('n-1-a').value),
+    b:  parseFloat(document.getElementById('n-1-b').value),
+    dp: parseFloat(document.getElementById('n-1-dt').value),
+    paramStart: 0,
+    total: Math.ceil(2*Math.PI / parseFloat(document.getElementById('n-1-dt').value)) + 1,
+  }),
+  (theta, p) => ({
+    x: p.xc + p.a * Math.cos(theta),
+    y: p.yc + p.b * Math.sin(theta),
+  }),
+  (theta) => theta > 2*Math.PI + 1e-9,
+  'θ'
+);
+
+// ===== CURVE 2: PARABOLA =====
+linkParam('s-2-xp',  'n-2-xp',  ()=>curves[2]&&curves[2].reset());
+linkParam('s-2-yp',  'n-2-yp',  ()=>curves[2]&&curves[2].reset());
+linkParam('s-2-a',   'n-2-a',   ()=>curves[2]&&curves[2].reset());
+linkParam('s-2-tmax','n-2-tmax',()=>curves[2]&&curves[2].reset());
+linkParam('s-2-dt',  'n-2-dt',  ()=>curves[2]&&curves[2].reset());
+
+curves[2] = makeCurve(2,
+  ()=>{
+    const tmax = parseFloat(document.getElementById('n-2-tmax').value);
+    const dt   = parseFloat(document.getElementById('n-2-dt').value);
+    return {
+      xp: parseFloat(document.getElementById('n-2-xp').value),
+      yp: parseFloat(document.getElementById('n-2-yp').value),
+      a:  parseFloat(document.getElementById('n-2-a').value),
+      dp: dt,
+      paramStart: -tmax,
+      tmax,
+      total: Math.ceil(2*tmax/dt)+1,
+    };
+  },
+  (t, p) => ({
+    x: p.xp + p.a * t*t,
+    y: p.yp + 2*p.a * t,
+  }),
+  (t, p) => t > p.tmax + 1e-9,
+  't'
+);
+
+// ===== CURVE 3: HIPERBOLA =====
+linkParam('s-3-xc','n-3-xc',()=>curves[3]&&curves[3].reset());
+linkParam('s-3-yc','n-3-yc',()=>curves[3]&&curves[3].reset());
+linkParam('s-3-a', 'n-3-a', ()=>curves[3]&&curves[3].reset());
+linkParam('s-3-b', 'n-3-b', ()=>curves[3]&&curves[3].reset());
+linkParam('s-3-dt','n-3-dt',()=>curves[3]&&curves[3].reset());
+
+curves[3] = makeCurve(3,
+  ()=>{
+    const dt = parseFloat(document.getElementById('n-3-dt').value);
+    const limit = Math.PI/2 - 0.05;
+    return {
+      xc: parseFloat(document.getElementById('n-3-xc').value),
+      yc: parseFloat(document.getElementById('n-3-yc').value),
+      a:  parseFloat(document.getElementById('n-3-a').value),
+      b:  parseFloat(document.getElementById('n-3-b').value),
+      dp: dt,
+      paramStart: -limit,
+      limit,
+      total: Math.ceil(2*limit/dt)+1,
+    };
+  },
+  (theta, p) => {
+    const sec = 1/Math.cos(theta);
+    const tan = Math.tan(theta);
+    return {
+      x: p.xc + p.a * sec,
+      y: p.yc + p.b * tan,
+    };
+  },
+  (theta, p) => theta > p.limit + 1e-9,
+  'θ'
+);
+
+// ===== INIT =====
+for (let i=0;i<4;i++){
+  const c=document.getElementById(`cvs-${i}`);
+  resizeCanvas(c);
+  curves[i].redraw();
+}
+</script>
+</body>
+</html>
