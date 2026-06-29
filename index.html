@@ -789,39 +789,179 @@ curves[2] = makeCurve(2,
   't'
 );
 
-// ===== CURVE 3: HIPERBOLA =====
+// ===== CURVE 3: HIPERBOLA (2 cabang) =====
 linkParam('s-3-xc','n-3-xc',()=>curves[3]&&curves[3].reset());
 linkParam('s-3-yc','n-3-yc',()=>curves[3]&&curves[3].reset());
 linkParam('s-3-a', 'n-3-a', ()=>curves[3]&&curves[3].reset());
 linkParam('s-3-b', 'n-3-b', ()=>curves[3]&&curves[3].reset());
 linkParam('s-3-dt','n-3-dt',()=>curves[3]&&curves[3].reset());
 
-curves[3] = makeCurve(3,
-  ()=>{
-    const dt = parseFloat(document.getElementById('n-3-dt').value);
+// Hiperbola custom — tidak pakai makeCurve karena perlu 2 cabang sekaligus
+(function(){
+  const idx   = 3;
+  const color = COLORS[idx];
+  const cvs   = document.getElementById(`cvs-${idx}`);
+  const ctx   = cvs.getContext('2d');
+
+  let ptsR   = []; // cabang kanan
+  let ptsL   = []; // cabang kiri
+  let param  = null;
+  let animId = null;
+  let playing = false;
+  let stepCount = 0;
+
+  function getParams() {
+    const dt    = parseFloat(document.getElementById('n-3-dt').value);
     const limit = Math.PI/2 - 0.05;
     return {
       xc: parseFloat(document.getElementById('n-3-xc').value),
       yc: parseFloat(document.getElementById('n-3-yc').value),
       a:  parseFloat(document.getElementById('n-3-a').value),
       b:  parseFloat(document.getElementById('n-3-b').value),
-      dp: dt,
-      paramStart: -limit,
-      limit,
+      dp: dt, limit,
       total: Math.ceil(2*limit/dt)+1,
     };
-  },
-  (theta, p) => {
-    const sec = 1/Math.cos(theta);
-    const tan = Math.tan(theta);
-    return {
-      x: p.xc + p.a * sec,
-      y: p.yc + p.b * tan,
-    };
-  },
-  (theta, p) => theta > p.limit + 1e-9,
-  'θ'
-);
+  }
+
+  function toCanvas(wx, wy) {
+    const W=cvs.width, H=cvs.height, scale=Math.min(W,H)/520;
+    return [W/2+wx*scale, H/2-wy*scale];
+  }
+
+  function drawGrid() {
+    const W=cvs.width, H=cvs.height;
+    ctx.clearRect(0,0,W,H);
+    ctx.strokeStyle='rgba(0,0,0,0.05)'; ctx.lineWidth=1;
+    const step=Math.min(W,H)/10;
+    for(let x=W/2%step;x<W;x+=step){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+    for(let y=H/2%step;y<H;y+=step){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+    ctx.strokeStyle='rgba(0,0,0,0.2)'; ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.moveTo(W/2,0);ctx.lineTo(W/2,H);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(0,H/2);ctx.lineTo(W,H/2);ctx.stroke();
+    ctx.fillStyle='rgba(0,0,0,0.3)';
+    ctx.font=`${10*devicePixelRatio}px JetBrains Mono`;
+    ctx.fillText('(0,0)',W/2+4,H/2-4);
+  }
+
+  function drawBranch(pts) {
+    if (pts.length < 2) {
+      if (pts.length===1){
+        const [px,py]=toCanvas(pts[0].x,pts[0].y);
+        ctx.fillStyle=color;
+        ctx.beginPath();ctx.arc(px,py,2.5*devicePixelRatio,0,Math.PI*2);ctx.fill();
+      }
+      return;
+    }
+    ctx.strokeStyle=color+'99'; ctx.lineWidth=2*devicePixelRatio; ctx.lineJoin='round';
+    ctx.beginPath();
+    const [sx,sy]=toCanvas(pts[0].x,pts[0].y); ctx.moveTo(sx,sy);
+    for(let i=1;i<pts.length;i++){
+      const [px,py]=toCanvas(pts[i].x,pts[i].y); ctx.lineTo(px,py);
+    }
+    ctx.stroke();
+    for(let i=0;i<pts.length-1;i++){
+      const [px,py]=toCanvas(pts[i].x,pts[i].y);
+      ctx.fillStyle=color+'44';
+      ctx.beginPath();ctx.arc(px,py,2.5*devicePixelRatio,0,Math.PI*2);ctx.fill();
+    }
+    // titik aktif terakhir
+    const last=pts[pts.length-1];
+    const [lx,ly]=toCanvas(last.x,last.y);
+    ctx.fillStyle=color; ctx.shadowColor=color; ctx.shadowBlur=10*devicePixelRatio;
+    ctx.beginPath();ctx.arc(lx,ly,4.5*devicePixelRatio,0,Math.PI*2);ctx.fill();
+    ctx.shadowBlur=0;
+  }
+
+  function redraw() { drawGrid(); drawBranch(ptsR); drawBranch(ptsL); }
+
+  function doStep() {
+    const p = getParams();
+    if (param===null) param = -p.limit;
+    if (param > p.limit + 1e-9) return false;
+
+    const theta = param;
+    const sec   = 1/Math.cos(theta);
+    const tan   = Math.tan(theta);
+
+    // cabang kanan: x positif
+    const xR = p.xc + p.a * sec;
+    const yR = p.yc + p.b * tan;
+    // cabang kiri: x negatif (cermin)
+    const xL = p.xc - p.a * sec;
+    const yL = p.yc + p.b * tan;
+
+    ptsR.push({theta, x:xR, y:yR});
+    ptsL.push({theta, x:xL, y:yL});
+    stepCount++;
+
+    // update display — tampilkan cabang kanan sebagai referensi
+    document.getElementById(`fval-${idx}-x`).textContent = xR.toFixed(3);
+    document.getElementById(`fval-${idx}-y`).textContent = yR.toFixed(3);
+    document.getElementById(`badge-${idx}`).textContent  = `θ = ${theta.toFixed(3)} rad`;
+
+    addLog(stepCount, theta, xR, yR, xL, yL);
+    param += p.dp;
+    redraw();
+    updateStatus(p);
+    return true;
+  }
+
+  function addLog(i, theta, xR, yR, xL, yL) {
+    const tbody=document.getElementById(`log-${idx}`);
+    const tr=document.createElement('tr');
+    tr.className='new-row';
+    tr.innerHTML=`<td style="color:${COLORS[1]}">${i}</td><td style="color:${color}">${theta.toFixed(3)}</td><td>${xR.toFixed(1)}</td><td>${yR.toFixed(1)}</td>`;
+    tbody.appendChild(tr);
+    const wrap=tbody.closest('.log-wrap');
+    wrap.scrollTop=wrap.scrollHeight;
+    setTimeout(()=>tr.classList.remove('new-row'),500);
+  }
+
+  function updateStatus(p) {
+    document.getElementById(`st-${idx}-pts`).textContent = stepCount + ' ×2';
+    document.getElementById(`st-${idx}-tot`).textContent = '~'+p.total+'×2';
+    document.getElementById(`st-${idx}-dt`).textContent  = p.dp.toFixed(3);
+  }
+
+  function playLoop() {
+    if (!playing) return;
+    const spd=parseInt(document.getElementById(`spd-${idx}`).value);
+    const ok=doStep();
+    if (!ok){ stop(); return; }
+    animId=setTimeout(playLoop,spd);
+  }
+
+  function start() {
+    if (param!==null && param > getParams().limit+1e-9) reset();
+    playing=true;
+    const btn=document.getElementById(`bp-${idx}`);
+    btn.textContent='⏸ Pause'; btn.classList.add('playing');
+    playLoop();
+  }
+  function stop() {
+    playing=false; clearTimeout(animId);
+    const btn=document.getElementById(`bp-${idx}`);
+    btn.textContent='▶ Play'; btn.classList.remove('playing');
+  }
+  function reset() {
+    stop(); param=null; ptsR=[]; ptsL=[]; stepCount=0;
+    document.getElementById(`log-${idx}`).innerHTML='';
+    document.getElementById(`fval-${idx}-x`).textContent='–';
+    document.getElementById(`fval-${idx}-y`).textContent='–';
+    document.getElementById(`badge-${idx}`).textContent='θ = 0.000 rad';
+    redraw();
+    const p=getParams();
+    document.getElementById(`st-${idx}-pts`).textContent='0';
+    document.getElementById(`st-${idx}-tot`).textContent='~'+p.total+'×2';
+    document.getElementById(`st-${idx}-dt`).textContent=p.dp.toFixed(3);
+  }
+
+  document.getElementById(`bp-${idx}`).addEventListener('click',()=>{ if(playing) stop(); else start(); });
+  document.getElementById(`bs-${idx}`).addEventListener('click',()=>{ stop(); doStep(); });
+  document.getElementById(`br-${idx}`).addEventListener('click', reset);
+
+  curves[3] = { redraw, stop, reset };
+})();
 
 // ===== INIT =====
 for (let i=0;i<4;i++){
